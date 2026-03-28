@@ -79,6 +79,30 @@ final class GamanboStore: ObservableObject {
         }
     }
 
+    func csvText(for monthStart: Date?) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "yyyy-MM-dd"
+
+        let rows = entries(for: monthStart).map { entry in
+            [
+                formatter.string(from: entry.date),
+                escapeCSV(entry.title),
+                escapeCSV(entry.category.rawValue),
+                "\(entry.amount)",
+                escapeCSV(entry.note)
+            ].joined(separator: ",")
+        }
+
+        let header = "date,title,category,amount,note"
+        return ([header] + rows).joined(separator: "\n")
+    }
+
+    private func escapeCSV(_ value: String) -> String {
+        let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
+        return "\"\(escaped)\""
+    }
+
     var trophies: [Trophy] {
         Trophy.defaults.map { trophy in
             Trophy(

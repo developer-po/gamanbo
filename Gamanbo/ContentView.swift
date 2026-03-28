@@ -6,10 +6,12 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @ObservedObject var store: GamanboStore
     @StateObject private var reminderStore = ReminderSettingsStore()
+    @State private var isExportingCSV = false
     @State private var isPresentingAddSheet = false
     @State private var searchText = ""
     @State private var selectedMonthStart: Date?
@@ -47,10 +49,19 @@ struct ContentView: View {
             .navigationTitle("がまんぼ")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    ShareLink(item: shareText) {
-                        Image(systemName: "square.and.arrow.up")
+                    HStack(spacing: 14) {
+                        Button {
+                            isExportingCSV = true
+                        } label: {
+                            Image(systemName: "square.and.arrow.down")
+                        }
+                        .accessibilityLabel("CSVを書き出す")
+
+                        ShareLink(item: shareText) {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                        .accessibilityLabel("共有")
                     }
-                    .accessibilityLabel("共有")
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
@@ -67,6 +78,12 @@ struct ContentView: View {
             .sheet(item: $entryBeingEdited) { entry in
                 AddEntryView(store: store, editingEntry: entry)
             }
+            .fileExporter(
+                isPresented: $isExportingCSV,
+                document: CSVExportDocument(text: csvExportText),
+                contentType: .commaSeparatedText,
+                defaultFilename: csvFilename
+            ) { _ in }
             .alert("この記録を削除しますか？", isPresented: deleteAlertIsPresented) {
                 Button("キャンセル", role: .cancel) {
                     entryPendingDeletion = nil
@@ -145,6 +162,20 @@ struct ContentView: View {
         記録数: \(count)件
         欲しいものをちょっと我慢して、コツコツ積み上げ中。
         """
+    }
+
+    private var csvExportText: String {
+        store.csvText(for: selectedMonthStart)
+    }
+
+    private var csvFilename: String {
+        if let selectedMonthSummary {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "ja_JP")
+            formatter.dateFormat = "yyyy-MM"
+            return "gamanbo-\(formatter.string(from: selectedMonthSummary.monthStart))"
+        }
+        return "gamanbo-all"
     }
 
     private var heroSection: some View {
@@ -277,6 +308,10 @@ struct ContentView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Text("CSV書き出しは左上のダウンロードボタンからできます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             if categorySummaries.isEmpty {
                 EmptyCard(text: "記録が増えると、どのカテゴリで節約できたかここに表示されます。")
