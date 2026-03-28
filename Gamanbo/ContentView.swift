@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var store: GamanboStore
+    @StateObject private var reminderStore = ReminderSettingsStore()
     @State private var isPresentingAddSheet = false
     @State private var selectedMonthStart: Date?
     @State private var entryBeingEdited: GamanboEntry?
@@ -31,6 +32,7 @@ struct ContentView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         heroSection
+                        reminderSection
                         summarySection
                         chartSection
                         monthlySection
@@ -74,6 +76,23 @@ struct ContentView: View {
                 }
             } message: {
                 Text(entryPendingDeletion?.title ?? "")
+            }
+            .alert(
+                "通知について",
+                isPresented: Binding(
+                    get: { reminderStore.alertMessage != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            reminderStore.alertMessage = nil
+                        }
+                    }
+                )
+            ) {
+                Button("OK", role: .cancel) {
+                    reminderStore.alertMessage = nil
+                }
+            } message: {
+                Text(reminderStore.alertMessage?.message ?? "")
             }
         }
     }
@@ -140,6 +159,15 @@ struct ContentView: View {
         .background(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(Color.white.opacity(0.88))
+        )
+    }
+
+    private var reminderSection: some View {
+        ReminderCard(
+            isEnabled: reminderStore.isEnabled,
+            reminderTime: reminderStore.reminderTime,
+            onToggle: { reminderStore.setEnabled($0) },
+            onTimeChange: { reminderStore.updateReminderTime($0) }
         )
     }
 
@@ -313,6 +341,63 @@ private struct StatCard: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(0.92))
+        )
+    }
+}
+
+private struct ReminderCard: View {
+    let isEnabled: Bool
+    let reminderTime: Date
+    let onToggle: (Bool) -> Void
+    let onTimeChange: (Date) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("ふりかえり通知")
+                        .font(.title3.weight(.bold))
+
+                    Text("毎日1回、がまんを記録する時間をやさしく知らせます。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Toggle("", isOn: Binding(
+                    get: { isEnabled },
+                    set: onToggle
+                ))
+                .labelsHidden()
+                .tint(Color(red: 0.20, green: 0.55, blue: 0.38))
+            }
+
+            HStack {
+                Label("通知時刻", systemImage: "bell.badge")
+                    .font(.subheadline.weight(.medium))
+
+                Spacer()
+
+                DatePicker(
+                    "",
+                    selection: Binding(
+                        get: { reminderTime },
+                        set: onTimeChange
+                    ),
+                    displayedComponents: .hourAndMinute
+                )
+                .labelsHidden()
+            }
+
+            Text(isEnabled ? "毎日 \(reminderTime.formatted(date: .omitted, time: .shortened)) に通知します。" : "通知はオフです。必要なときだけオンにできます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
