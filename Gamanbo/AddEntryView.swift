@@ -10,11 +10,21 @@ import SwiftUI
 struct AddEntryView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var store: GamanboStore
+    let editingEntry: GamanboEntry?
 
     @State private var title = ""
     @State private var amountText = ""
     @State private var category: GamanCategory = .food
     @State private var note = ""
+
+    init(store: GamanboStore, editingEntry: GamanboEntry? = nil) {
+        self.store = store
+        self.editingEntry = editingEntry
+        _title = State(initialValue: editingEntry?.title ?? "")
+        _amountText = State(initialValue: editingEntry.map { String($0.amount) } ?? "")
+        _category = State(initialValue: editingEntry?.category ?? .food)
+        _note = State(initialValue: editingEntry?.note ?? "")
+    }
 
     private var amountValue: Int? {
         Int(amountText)
@@ -46,12 +56,12 @@ struct AddEntryView: View {
                 }
 
                 Section {
-                    Label("長押しで記録を削除できます", systemImage: "hand.tap")
+                    Label("記録は長押しで削除、または編集できます", systemImage: "hand.tap")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("がまんを記録")
+            .navigationTitle(editingEntry == nil ? "がまんを記録" : "記録を編集")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -61,7 +71,7 @@ struct AddEntryView: View {
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("保存") {
+                    Button(editingEntry == nil ? "保存" : "更新") {
                         saveEntry()
                     }
                     .disabled(!canSave)
@@ -72,7 +82,17 @@ struct AddEntryView: View {
 
     private func saveEntry() {
         guard let amountValue, canSave else { return }
-        store.addEntry(title: title, amount: amountValue, category: category, note: note)
+        if let editingEntry {
+            store.updateEntry(
+                id: editingEntry.id,
+                title: title,
+                amount: amountValue,
+                category: category,
+                note: note
+            )
+        } else {
+            store.addEntry(title: title, amount: amountValue, category: category, note: note)
+        }
         dismiss()
     }
 }

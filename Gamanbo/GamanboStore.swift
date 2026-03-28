@@ -91,6 +91,21 @@ final class GamanboStore: ObservableObject {
         entries.insert(newEntry, at: 0)
     }
 
+    func updateEntry(id: UUID, title: String, amount: Int, category: GamanCategory, note: String) {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+
+        let existing = entries[index]
+        entries[index] = GamanboEntry(
+            id: existing.id,
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            amount: amount,
+            category: category,
+            note: note.trimmingCharacters(in: .whitespacesAndNewlines),
+            date: existing.date
+        )
+        entries.sort { $0.date > $1.date }
+    }
+
     func deleteEntry(id: UUID) {
         entries.removeAll { $0.id == id }
     }
@@ -144,5 +159,9 @@ struct MonthlySummary: Identifiable {
 
     var monthLabel: String {
         monthStart.formatted(.dateTime.year().month(.wide))
+    }
+
+    var monthShortLabel: String {
+        monthStart.formatted(.dateTime.month(.abbreviated))
     }
 }

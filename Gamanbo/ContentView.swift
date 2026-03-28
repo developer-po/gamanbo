@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var store: GamanboStore
     @State private var isPresentingAddSheet = false
+    @State private var entryBeingEdited: GamanboEntry?
     @State private var entryPendingDeletion: GamanboEntry?
 
     var body: some View {
@@ -30,6 +31,7 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         heroSection
                         summarySection
+                        chartSection
                         monthlySection
                         trophySection
                         recentEntriesSection
@@ -49,6 +51,9 @@ struct ContentView: View {
             }
             .sheet(isPresented: $isPresentingAddSheet) {
                 AddEntryView(store: store)
+            }
+            .sheet(item: $entryBeingEdited) { entry in
+                AddEntryView(store: store, editingEntry: entry)
             }
             .alert("この記録を削除しますか？", isPresented: deleteAlertIsPresented) {
                 Button("キャンセル", role: .cancel) {
@@ -154,6 +159,27 @@ struct ContentView: View {
         }
     }
 
+    private var chartSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("がまんグラフ")
+                    .font(.title3.weight(.bold))
+
+                Spacer()
+
+                Text("直近3か月")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if store.monthlySummaries.isEmpty {
+                EmptyCard(text: "記録が増えると、月ごとの節約グラフがここに表示されます。")
+            } else {
+                MonthlyBarChart(summaries: Array(store.monthlySummaries.prefix(3).reversed()))
+            }
+        }
+    }
+
     private var trophySection: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("トロフィー")
@@ -202,6 +228,8 @@ struct ContentView: View {
                     ForEach(store.entries) { entry in
                         EntryRow(entry: entry) {
                             entryPendingDeletion = entry
+                        } onEdit: {
+                            entryBeingEdited = entry
                         }
                     }
                 }
@@ -334,9 +362,67 @@ private struct EmptyCard: View {
     }
 }
 
+private struct MonthlyBarChart: View {
+    let summaries: [MonthlySummary]
+
+    private var maxAmount: Double {
+        Double(summaries.map(\.totalAmount).max() ?? 1)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .bottom, spacing: 14) {
+                ForEach(summaries) { summary in
+                    VStack(spacing: 10) {
+                        Text(summary.totalAmount.currencyText)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+
+                        GeometryReader { proxy in
+                            VStack {
+                                Spacer(minLength: 0)
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: 0.19, green: 0.61, blue: 0.50),
+                                                Color(red: 0.91, green: 0.73, blue: 0.34)
+                                            ],
+                                            startPoint: .bottom,
+                                            endPoint: .top
+                                        )
+                                    )
+                                    .frame(height: max(18, proxy.size.height * CGFloat(Double(summary.totalAmount) / maxAmount)))
+                            }
+                        }
+                        .frame(height: 140)
+
+                        Text(summary.monthShortLabel)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+
+            Text("月によってがまん額の波が見えるので、続けやすいペースをつかめます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(0.92))
+        )
+    }
+}
+
 private struct EntryRow: View {
     let entry: GamanboEntry
     let onDelete: () -> Void
+    let onEdit: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
@@ -381,6 +467,12 @@ private struct EntryRow: View {
                 .fill(Color.white.opacity(0.92))
         )
         .contextMenu {
+            Button {
+                onEdit()
+            } label: {
+                Label("編集", systemImage: "pencil")
+            }
+
             Button(role: .destructive) {
                 onDelete()
             } label: {
