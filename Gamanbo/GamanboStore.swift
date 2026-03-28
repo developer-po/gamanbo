@@ -37,6 +37,57 @@ final class GamanboStore: ObservableObject {
         entriesForCurrentMonth.count
     }
 
+    var activeDaysCount: Int {
+        uniqueEntryDays.count
+    }
+
+    var currentStreak: Int {
+        guard !uniqueEntryDays.isEmpty else { return 0 }
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+
+        guard uniqueEntryDays.contains(today) || uniqueEntryDays.contains(yesterday) else {
+            return 0
+        }
+
+        var streak = 0
+        var cursor = uniqueEntryDays.contains(today) ? today : yesterday
+
+        while uniqueEntryDays.contains(cursor) {
+            streak += 1
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = previousDay
+        }
+
+        return streak
+    }
+
+    var bestStreak: Int {
+        let sortedDays = uniqueEntryDays.sorted(by: >)
+        guard !sortedDays.isEmpty else { return 0 }
+
+        let calendar = Calendar.current
+        var best = 1
+        var current = 1
+
+        for index in 1..<sortedDays.count {
+            let previous = sortedDays[index - 1]
+            let currentDay = sortedDays[index]
+            let diff = calendar.dateComponents([.day], from: currentDay, to: previous).day ?? 0
+
+            if diff == 1 {
+                current += 1
+                best = max(best, current)
+            } else if diff > 1 {
+                current = 1
+            }
+        }
+
+        return best
+    }
+
     var monthlySummaries: [MonthlySummary] {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: entries) { entry in
@@ -116,6 +167,24 @@ final class GamanboStore: ObservableObject {
         }
     }
 
+    var nextTrophy: Trophy? {
+        trophies.first(where: { !$0.isUnlocked })
+    }
+
+    var nextTrophyProgress: Double {
+        guard let nextTrophy else { return 1 }
+
+        let previousThreshold = Trophy.defaults
+            .filter { $0.threshold < nextTrophy.threshold }
+            .map(\.threshold)
+            .max() ?? 0
+
+        let required = nextTrophy.threshold - previousThreshold
+        guard required > 0 else { return 1 }
+
+        return min(1, max(0, Double(totalAmount - previousThreshold) / Double(required)))
+    }
+
     var nextMilestoneText: String {
         guard let next = Trophy.defaults.first(where: { totalAmount < $0.threshold }) else {
             return "達成済み"
@@ -159,6 +228,11 @@ final class GamanboStore: ObservableObject {
         entries.removeAll { $0.id == id }
     }
 
+    private var uniqueEntryDays: Set<Date> {
+        let calendar = Calendar.current
+        return Set(entries.map { calendar.startOfDay(for: $0.date) })
+    }
+
     private var entriesForCurrentMonth: [GamanboEntry] {
         let calendar = Calendar.current
         return entries.filter { calendar.isDate($0.date, equalTo: .now, toGranularity: .month) }
@@ -186,9 +260,27 @@ extension GamanboStore {
     static let preview = GamanboStore(useSampleData: true)
 
     static let sampleEntries: [GamanboEntry] = [
-        GamanboEntry(title: "コンビニスイーツ", amount: 320, category: .food, note: "夜のつい買いを我慢"),
-        GamanboEntry(title: "カフェラテ", amount: 540, category: .cafe, note: "家でコーヒーを淹れた"),
-        GamanboEntry(title: "セールのTシャツ", amount: 2_980, category: .shopping, note: "今ある服で着回し"),
+        GamanboEntry(
+            title: "コンビニスイーツ",
+            amount: 320,
+            category: .food,
+            note: "夜のつい買いを我慢",
+            date: .now
+        ),
+        GamanboEntry(
+            title: "カフェラテ",
+            amount: 540,
+            category: .cafe,
+            note: "家でコーヒーを淹れた",
+            date: Calendar.current.date(byAdding: .day, value: -1, to: .now) ?? .now
+        ),
+        GamanboEntry(
+            title: "セールのTシャツ",
+            amount: 2_980,
+            category: .shopping,
+            note: "今ある服で着回し",
+            date: Calendar.current.date(byAdding: .day, value: -2, to: .now) ?? .now
+        ),
         GamanboEntry(
             title: "終電回避のタクシー",
             amount: 1_800,

@@ -35,6 +35,7 @@ struct ContentView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         heroSection
+                        streakSection
                         reminderSection
                         summarySection
                         chartSection
@@ -206,6 +207,32 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(Color.white.opacity(0.88))
         )
+    }
+
+    private var streakSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                StatCard(
+                    title: "連続記録",
+                    value: "\(store.currentStreak)日",
+                    caption: "ベストは\(store.bestStreak)日",
+                    accent: Color(red: 0.88, green: 0.42, blue: 0.26)
+                )
+
+                StatCard(
+                    title: "記録した日数",
+                    value: "\(store.activeDaysCount)日",
+                    caption: "積み上げた日数",
+                    accent: Color(red: 0.28, green: 0.58, blue: 0.74)
+                )
+            }
+
+            TrophyProgressCard(
+                nextTrophy: store.nextTrophy,
+                progress: store.nextTrophyProgress,
+                nextMilestoneText: store.nextMilestoneText
+            )
+        }
     }
 
     private var reminderSection: some View {
@@ -487,6 +514,50 @@ private struct ReminderCard: View {
             Text(isEnabled ? "毎日 \(reminderTime.formatted(date: .omitted, time: .shortened)) に通知します。" : "通知はオフです。必要なときだけオンにできます。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(0.92))
+        )
+    }
+}
+
+private struct TrophyProgressCard: View {
+    let nextTrophy: Trophy?
+    let progress: Double
+    let nextMilestoneText: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("次のトロフィー")
+                .font(.headline)
+
+            if let nextTrophy {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(nextTrophy.title)
+                            .font(.title3.weight(.bold))
+
+                        Text("あと\(nextMilestoneText)で獲得")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "trophy.fill")
+                        .font(.title2)
+                        .foregroundStyle(nextTrophy.color)
+                }
+
+                ProgressView(value: progress)
+                    .tint(nextTrophy.color)
+            } else {
+                Text("すべてのトロフィーを獲得済みです。")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(18)
         .background(
