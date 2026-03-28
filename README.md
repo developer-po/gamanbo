@@ -55,6 +55,116 @@
 2. Signing & Capabilities で必要に応じて Team を設定する
 3. Simulator または実機で実行する
 
+## Beginner Workflow
+
+はじめて開発を進めるときは、毎回この流れで進めるとわかりやすいです。
+
+### 1. 最新の `main` を使う
+
+```bash
+cd /Users/aikawa.yuki/Developer/Gamanbo
+git checkout main
+git pull
+```
+
+### 2. 新しい作業ブランチを作る
+
+`feature-name` の部分は、やることに合わせて変えてください。
+
+```bash
+git checkout -b codex/feature-name
+```
+
+例:
+
+```bash
+git checkout -b codex/add-widget
+git checkout -b codex/improve-search
+```
+
+### 3. Xcode で開発する
+
+1. `Gamanbo.xcodeproj` を開く
+2. 画面上で `Gamanbo` を選ぶ
+3. 実行先に `iPhone Simulator` を選ぶ
+4. `command + R` で起動する
+
+### 4. 動作確認する
+
+最低限、次を確認すると安心です。
+
+- アプリが起動する
+- 追加した機能が動く
+- 既存の主要機能が壊れていない
+
+必要に応じてビルド確認もできます。
+
+```bash
+xcodebuild -quiet -project Gamanbo.xcodeproj -scheme Gamanbo -destination 'generic/platform=iOS' -derivedDataPath /tmp/GamanboDerived CODE_SIGNING_ALLOWED=NO build
+```
+
+### 5. 変更を Git に保存する
+
+```bash
+git status
+git add .
+git commit -m "Describe what changed"
+```
+
+コミットメッセージ例:
+
+```bash
+git commit -m "Add widget prototype"
+git commit -m "Improve monthly summary UI"
+```
+
+### 6. GitHub に push する
+
+```bash
+git push -u origin codex/feature-name
+```
+
+2回目以降は、同じブランチならこれだけで大丈夫です。
+
+```bash
+git push
+```
+
+### 7. GitHub で Pull Request を作る
+
+1. GitHub のリポジトリを開く
+2. `Compare & pull request` を押す
+3. タイトルと本文を書く
+4. `Create pull request` を押す
+
+### 8. マージ後にローカルを片付ける
+
+```bash
+git checkout main
+git pull
+git branch -d codex/feature-name
+```
+
+### 困ったとき
+
+- 今どのブランチにいるか確認したい:
+
+```bash
+git branch --show-current
+```
+
+- 変更されたファイルを見たい:
+
+```bash
+git status
+```
+
+- GitHub に送れているか確認したい:
+
+```bash
+git remote -v
+```
+
 ## Suggested GitHub Description
 
 `我慢して使わなかったお金を記録するiOSアプリ`
