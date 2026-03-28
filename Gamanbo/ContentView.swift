@@ -10,6 +10,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @ObservedObject var store: GamanboStore
+    @AppStorage("gamanbo.dismissedTips") private var dismissedTips = false
     @StateObject private var reminderStore = ReminderSettingsStore()
     @State private var isExportingCSV = false
     @State private var isPresentingAddSheet = false
@@ -17,6 +18,8 @@ struct ContentView: View {
     @State private var selectedMonthStart: Date?
     @State private var entryBeingEdited: GamanboEntry?
     @State private var entryPendingDeletion: GamanboEntry?
+    @State private var previousUnlockedTrophyCount = 0
+    @State private var celebratedTrophy: Trophy?
 
     var body: some View {
         NavigationStack {
@@ -35,6 +38,7 @@ struct ContentView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         heroSection
+                        tipsSection
                         streakSection
                         reminderSection
                         summarySection
@@ -45,6 +49,13 @@ struct ContentView: View {
                         recentEntriesSection
                     }
                     .padding(20)
+                }
+            }
+            .overlay(alignment: .top) {
+                if let celebratedTrophy {
+                    TrophyCelebrationBanner(trophy: celebratedTrophy)
+                        .padding(.top, 12)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
             .navigationTitle("がまんぼ")
@@ -113,6 +124,12 @@ struct ContentView: View {
                 }
             } message: {
                 Text(reminderStore.alertMessage?.message ?? "")
+            }
+            .onAppear {
+                previousUnlockedTrophyCount = store.trophies.filter(\.isUnlocked).count
+            }
+            .onChange(of: store.totalAmount) { _, _ in
+                handleTrophyUnlockIfNeeded()
             }
         }
     }
@@ -209,6 +226,21 @@ struct ContentView: View {
         )
     }
 
+    private var tipsSection: some View {
+        Group {
+            if !dismissedTips && store.entries.count < 5 {
+                TipsCard(
+                    suggestions: [
+                        "コンビニのつい買いを我慢した",
+                        "カフェを家コーヒーに置き換えた",
+                        "セール品の衝動買いを見送った"
+                    ],
+                    onDismiss: { dismissedTips = true }
+                )
+            }
+        }
+    }
+
     private var streakSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
@@ -232,6 +264,32 @@ struct ContentView: View {
                 progress: store.nextTrophyProgress,
                 nextMilestoneText: store.nextMilestoneText
             )
+        }
+    }
+
+    private func handleTrophyUnlockIfNeeded() {
+        let unlockedTrophies = store.trophies.filter(\.isUnlocked)
+        let unlockedCount = unlockedTrophies.count
+
+        guard unlockedCount > previousUnlockedTrophyCount,
+              let latest = unlockedTrophies.last
+        else {
+            previousUnlockedTrophyCount = unlockedCount
+            return
+        }
+
+        previousUnlockedTrophyCount = unlockedCount
+
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
+            celebratedTrophy = latest
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
+            withAnimation(.easeOut(duration: 0.25)) {
+                if celebratedTrophy?.id == latest.id {
+                    celebratedTrophy = nil
+                }
+            }
         }
     }
 
@@ -523,6 +581,46 @@ private struct ReminderCard: View {
     }
 }
 
+private struct TipsCard: View {
+    let suggestions: [String]
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("はじめのヒント")
+                        .font(.title3.weight(.bold))
+
+                    Text("迷ったら、まずは小さな我慢から記録してみると続けやすいです。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Button("閉じる", action: onDismiss)
+                    .font(.caption.weight(.semibold))
+            }
+
+            ForEach(suggestions, id: \.self) { suggestion in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(Color(red: 0.87, green: 0.58, blue: 0.19))
+
+                    Text(suggestion)
+                        .font(.subheadline)
+                }
+            }
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(0.92))
+        )
+    }
+}
+
 private struct TrophyProgressCard: View {
     let nextTrophy: Trophy?
     let progress: Double
@@ -564,6 +662,41 @@ private struct TrophyProgressCard: View {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(Color.white.opacity(0.92))
         )
+    }
+}
+
+private struct TrophyCelebrationBanner: View {
+    let trophy: Trophy
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "trophy.fill")
+                .font(.title3)
+                .foregroundStyle(trophy.color)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("トロフィー獲得")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                Text(trophy.title)
+                    .font(.headline)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Color.white.opacity(0.97))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(trophy.color.opacity(0.25), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.08), radius: 18, y: 10)
+        .padding(.horizontal, 20)
     }
 }
 
