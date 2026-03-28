@@ -3,123 +3,56 @@ import AppKit
 struct IconTheme {
     let backgroundTop: NSColor
     let backgroundBottom: NSColor
-    let trophyColor: NSColor
-    let coinColor: NSColor
-    let ringColor: NSColor
-    let sparkleColor: NSColor
+    let noseMain: NSColor
+    let noseHighlight: NSColor
+    let nostril: NSColor
 }
 
-let outputDirectory = URL(fileURLWithPath: "/Users/aikawa.yuki/Developer/Gamanbo/Gamanbo/Assets.xcassets/AppIcon.appiconset", isDirectory: true)
+let outputDirectory = URL(
+    fileURLWithPath: "/Users/aikawa.yuki/Developer/Gamanbo/Gamanbo/Assets.xcassets/AppIcon.appiconset",
+    isDirectory: true
+)
 
 let theme = IconTheme(
-    backgroundTop: NSColor(calibratedRed: 0.98, green: 0.89, blue: 0.64, alpha: 1),
-    backgroundBottom: NSColor(calibratedRed: 0.95, green: 0.57, blue: 0.29, alpha: 1),
-    trophyColor: NSColor.white,
-    coinColor: NSColor(calibratedRed: 0.13, green: 0.43, blue: 0.29, alpha: 1),
-    ringColor: NSColor(calibratedRed: 1, green: 1, blue: 1, alpha: 0.22),
-    sparkleColor: NSColor(calibratedRed: 1, green: 0.98, blue: 0.84, alpha: 1)
+    backgroundTop: NSColor(calibratedRed: 0.99, green: 0.99, blue: 0.98, alpha: 1),
+    backgroundBottom: NSColor(calibratedRed: 0.95, green: 0.95, blue: 0.94, alpha: 1),
+    noseMain: NSColor(calibratedRed: 0.98, green: 0.75, blue: 0.80, alpha: 1),
+    noseHighlight: NSColor(calibratedRed: 0.995, green: 0.87, blue: 0.90, alpha: 1),
+    nostril: NSColor(calibratedRed: 0.66, green: 0.35, blue: 0.45, alpha: 1)
 )
 
 let canvasSize = CGSize(width: 1024, height: 1024)
 
-func drawBackground(in rect: CGRect, theme: IconTheme) {
-    let roundedPath = NSBezierPath(roundedRect: rect, xRadius: 220, yRadius: 220)
-    roundedPath.addClip()
+func fillBackground(rect: CGRect, theme: IconTheme) {
+    let path = NSBezierPath(roundedRect: rect, xRadius: 230, yRadius: 230)
+    path.addClip()
 
-    let gradient = NSGradient(starting: theme.backgroundTop, ending: theme.backgroundBottom)
-    gradient?.draw(in: roundedPath, angle: -60)
-
-    theme.ringColor.setStroke()
-    let ringPath = NSBezierPath()
-    ringPath.lineWidth = 30
-    ringPath.appendArc(
-        withCenter: CGPoint(x: 512, y: 548),
-        radius: 312,
-        startAngle: 205,
-        endAngle: 342,
-        clockwise: false
-    )
-    ringPath.stroke()
+    let gradient = NSGradient(colors: [theme.backgroundTop, theme.backgroundBottom])!
+    gradient.draw(in: path, angle: -90)
 }
 
-func drawTrophy(in rect: CGRect, theme: IconTheme) {
-    theme.trophyColor.setFill()
+func drawNose(theme: IconTheme) {
+    let noseRect = CGRect(x: 214, y: 300, width: 596, height: 420)
+    let nosePath = NSBezierPath(roundedRect: noseRect, xRadius: 190, yRadius: 190)
+    let noseGradient = NSGradient(colors: [theme.noseHighlight, theme.noseMain])!
+    noseGradient.draw(in: nosePath, angle: -90)
 
-    let cup = NSBezierPath(roundedRect: CGRect(x: 332, y: 396, width: 360, height: 270), xRadius: 84, yRadius: 84)
-    cup.fill()
+    theme.noseHighlight.withAlphaComponent(0.5).setStroke()
+    nosePath.lineWidth = 3
+    nosePath.stroke()
 
-    let baseStem = NSBezierPath(roundedRect: CGRect(x: 462, y: 286, width: 100, height: 146), xRadius: 40, yRadius: 40)
-    baseStem.fill()
-
-    let base = NSBezierPath(roundedRect: CGRect(x: 356, y: 214, width: 312, height: 76), xRadius: 38, yRadius: 38)
-    base.fill()
-
-    let leftHandle = NSBezierPath()
-    leftHandle.lineWidth = 40
-    leftHandle.lineCapStyle = .round
-    leftHandle.appendArc(
-        withCenter: CGPoint(x: 310, y: 526),
-        radius: 96,
-        startAngle: 82,
-        endAngle: 274,
-        clockwise: true
-    )
-    leftHandle.stroke()
-
-    let rightHandle = NSBezierPath()
-    rightHandle.lineWidth = 40
-    rightHandle.lineCapStyle = .round
-    rightHandle.appendArc(
-        withCenter: CGPoint(x: 714, y: 526),
-        radius: 96,
-        startAngle: 98,
-        endAngle: 266,
-        clockwise: false
-    )
-    rightHandle.stroke()
+    theme.noseHighlight.withAlphaComponent(0.92).setFill()
+    let topOval = NSBezierPath(ovalIn: CGRect(x: 320, y: 540, width: 384, height: 74))
+    topOval.fill()
 }
 
-func drawCoin(theme: IconTheme) {
-    let coinRect = CGRect(x: 622, y: 198, width: 210, height: 210)
-    let coin = NSBezierPath(ovalIn: coinRect)
-    theme.coinColor.setFill()
-    coin.fill()
+func drawNostrils(theme: IconTheme) {
+    theme.nostril.setFill()
 
-    let formatter = NSMutableParagraphStyle()
-    formatter.alignment = .center
-
-    let attributes: [NSAttributedString.Key: Any] = [
-        .font: NSFont.systemFont(ofSize: 124, weight: .bold),
-        .foregroundColor: NSColor.white,
-        .paragraphStyle: formatter
-    ]
-
-    let symbol = NSAttributedString(string: "¥", attributes: attributes)
-    symbol.draw(in: CGRect(x: 622, y: 226, width: 210, height: 124))
-}
-
-func drawSparkles(theme: IconTheme) {
-    theme.sparkleColor.setFill()
-
-    let positions: [(CGFloat, CGFloat, CGFloat)] = [
-        (266, 772, 42),
-        (728, 760, 28),
-        (232, 330, 20)
-    ]
-
-    for (x, y, radius) in positions {
-        let sparkle = NSBezierPath()
-        sparkle.move(to: CGPoint(x: x, y: y + radius))
-        sparkle.line(to: CGPoint(x: x + radius * 0.35, y: y + radius * 0.35))
-        sparkle.line(to: CGPoint(x: x + radius, y: y))
-        sparkle.line(to: CGPoint(x: x + radius * 0.35, y: y - radius * 0.35))
-        sparkle.line(to: CGPoint(x: x, y: y - radius))
-        sparkle.line(to: CGPoint(x: x - radius * 0.35, y: y - radius * 0.35))
-        sparkle.line(to: CGPoint(x: x - radius, y: y))
-        sparkle.line(to: CGPoint(x: x - radius * 0.35, y: y + radius * 0.35))
-        sparkle.close()
-        sparkle.fill()
-    }
+    let left = NSBezierPath(roundedRect: CGRect(x: 352, y: 418, width: 108, height: 152), xRadius: 50, yRadius: 50)
+    let right = NSBezierPath(roundedRect: CGRect(x: 564, y: 418, width: 108, height: 152), xRadius: 50, yRadius: 50)
+    left.fill()
+    right.fill()
 }
 
 func pngData(theme: IconTheme) -> Data? {
@@ -146,18 +79,15 @@ func pngData(theme: IconTheme) -> Data? {
     if let context = NSGraphicsContext(bitmapImageRep: bitmap) {
         NSGraphicsContext.current = context
         let rect = CGRect(origin: .zero, size: canvasSize)
-        drawBackground(in: rect, theme: theme)
-        drawTrophy(in: rect, theme: theme)
-        drawCoin(theme: theme)
-        drawSparkles(theme: theme)
+        fillBackground(rect: rect, theme: theme)
+        drawNose(theme: theme)
+        drawNostrils(theme: theme)
         context.flushGraphics()
     }
     NSGraphicsContext.restoreGraphicsState()
 
     return bitmap.representation(using: .png, properties: [:])
 }
-
-let fileManager = FileManager.default
 
 func normalizeTo1024(at fileURL: URL) throws {
     let process = Process()
@@ -175,20 +105,13 @@ func normalizeTo1024(at fileURL: URL) throws {
     }
 }
 
-let extraFiles = [
-    outputDirectory.appendingPathComponent("AppIcon-dark.png"),
-    outputDirectory.appendingPathComponent("AppIcon-tinted.png")
-]
-
-for fileURL in extraFiles {
-    try? fileManager.removeItem(at: fileURL)
-}
+let fileManager = FileManager.default
+let fileURL = outputDirectory.appendingPathComponent("AppIcon.png")
 
 guard let data = pngData(theme: theme) else {
     fatalError("Failed to encode AppIcon.png")
 }
 
-let fileURL = outputDirectory.appendingPathComponent("AppIcon.png")
 try? fileManager.removeItem(at: fileURL)
 try data.write(to: fileURL)
 try normalizeTo1024(at: fileURL)
