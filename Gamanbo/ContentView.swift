@@ -12,6 +12,7 @@ struct ContentView: View {
     @ObservedObject var store: GamanboStore
     @AppStorage("gamanbo.dismissedTips") private var dismissedTips = false
     @StateObject private var reminderStore = ReminderSettingsStore()
+    @State private var isShowingAbout = false
     @State private var isExportingCSV = false
     @State private var isPresentingAddSheet = false
     @State private var searchText = ""
@@ -63,6 +64,13 @@ struct ContentView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     HStack(spacing: 14) {
                         Button {
+                            isShowingAbout = true
+                        } label: {
+                            Image(systemName: "info.circle")
+                        }
+                        .accessibilityLabel("アプリ情報")
+
+                        Button {
                             isExportingCSV = true
                         } label: {
                             Image(systemName: "square.and.arrow.down")
@@ -89,6 +97,9 @@ struct ContentView: View {
             }
             .sheet(item: $entryBeingEdited) { entry in
                 AddEntryView(store: store, editingEntry: entry)
+            }
+            .sheet(isPresented: $isShowingAbout) {
+                AboutView()
             }
             .fileExporter(
                 isPresented: $isExportingCSV,
@@ -697,6 +708,90 @@ private struct TrophyCelebrationBanner: View {
         }
         .shadow(color: Color.black.opacity(0.08), radius: 18, y: 10)
         .padding(.horizontal, 20)
+    }
+}
+
+private struct AboutView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(AppInfo.displayName)
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
+
+                        Text("使ったお金ではなく、我慢して使わなかったお金を積み上げる家計簿アプリです。")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(22)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 26, style: .continuous)
+                            .fill(Color.white)
+                    )
+
+                    InfoBlock(
+                        title: "おすすめの使い方",
+                        lines: [
+                            "コンビニやカフェの小さな我慢から始める",
+                            "月別フィルタで、調子の良い月を振り返る",
+                            "CSV に書き出してあとから見返す"
+                        ]
+                    )
+
+                    InfoBlock(
+                        title: "アプリ情報",
+                        lines: [
+                            AppInfo.versionText,
+                            AppInfo.supportMessage
+                        ]
+                    )
+                }
+                .padding(20)
+            }
+            .background(Color(red: 0.97, green: 0.96, blue: 0.92))
+            .navigationTitle("アプリ情報")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("閉じる") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct InfoBlock: View {
+    let title: String
+    let lines: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+
+            ForEach(lines, id: \.self) { line in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.38))
+
+                    Text(line)
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                }
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(0.95))
+        )
     }
 }
 
