@@ -11,6 +11,7 @@ struct ContentView: View {
     @ObservedObject var store: GamanboStore
     @StateObject private var reminderStore = ReminderSettingsStore()
     @State private var isPresentingAddSheet = false
+    @State private var searchText = ""
     @State private var selectedMonthStart: Date?
     @State private var entryBeingEdited: GamanboEntry?
     @State private var entryPendingDeletion: GamanboEntry?
@@ -35,6 +36,7 @@ struct ContentView: View {
                         reminderSection
                         summarySection
                         chartSection
+                        categorySection
                         monthlySection
                         trophySection
                         recentEntriesSection
@@ -109,7 +111,16 @@ struct ContentView: View {
     }
 
     private var filteredEntries: [GamanboEntry] {
-        store.entries(for: selectedMonthStart)
+        let monthFiltered = store.entries(for: selectedMonthStart)
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmed.isEmpty else { return monthFiltered }
+
+        return monthFiltered.filter { entry in
+            entry.title.localizedCaseInsensitiveContains(trimmed)
+            || entry.note.localizedCaseInsensitiveContains(trimmed)
+            || entry.category.rawValue.localizedCaseInsensitiveContains(trimmed)
+        }
     }
 
     private var selectedMonthSummary: MonthlySummary? {
@@ -117,6 +128,10 @@ struct ContentView: View {
         return store.monthlySummaries.first {
             Calendar.current.isDate($0.monthStart, equalTo: selectedMonthStart, toGranularity: .month)
         }
+    }
+
+    private var categorySummaries: [CategorySummary] {
+        store.categorySummaries(for: selectedMonthStart)
     }
 
     private var shareText: String {
@@ -250,6 +265,31 @@ struct ContentView: View {
         }
     }
 
+    private var categorySection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("カテゴリ別の節約")
+                    .font(.title3.weight(.bold))
+
+                Spacer()
+
+                Text(selectedMonthSummary?.monthLabel ?? "全期間")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if categorySummaries.isEmpty {
+                EmptyCard(text: "記録が増えると、どのカテゴリで節約できたかここに表示されます。")
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(categorySummaries.prefix(4)) { summary in
+                        CategorySummaryRow(summary: summary)
+                    }
+                }
+            }
+        }
+    }
+
     private var trophySection: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("トロフィー")
@@ -278,17 +318,32 @@ struct ContentView: View {
                     Text(selectedMonthSummary?.monthLabel ?? "新しい順")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                }
+                    }
             }
+
+            TextField("記録を検索", text: $searchText)
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.white.opacity(0.92))
+                )
 
             if filteredEntries.isEmpty {
                 ContentUnavailableView(
-                    selectedMonthStart == nil ? "まだ記録がありません" : "この月の記録はありません",
+                    searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? (selectedMonthStart == nil ? "まだ記録がありません" : "この月の記録はありません")
+                    : "一致する記録がありません",
                     systemImage: "tray",
                     description: Text(
-                        selectedMonthStart == nil
-                        ? "まずはコンビニのスイーツや衝動買いを我慢した記録から始めてみましょう。"
-                        : "別の月を選ぶか、新しい我慢を記録してみましょう。"
+                        searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? (
+                            selectedMonthStart == nil
+                            ? "まずはコンビニのスイーツや衝動買いを我慢した記録から始めてみましょう。"
+                            : "別の月を選ぶか、新しい我慢を記録してみましょう。"
+                        )
+                        : "別のキーワードで検索してみましょう。"
                     )
                 )
                 .frame(maxWidth: .infinity)
@@ -441,6 +496,42 @@ private struct TrophyCard: View {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(trophy.isUnlocked ? trophy.color.opacity(0.2) : Color.black.opacity(0.05), lineWidth: 1)
         }
+    }
+}
+
+private struct CategorySummaryRow: View {
+    let summary: CategorySummary
+
+    var body: some View {
+        HStack(spacing: 14) {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(summary.category.color.opacity(0.18))
+                .frame(width: 48, height: 48)
+                .overlay {
+                    Image(systemName: summary.category.symbol)
+                        .foregroundStyle(summary.category.color)
+                }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(summary.category.rawValue)
+                    .font(.headline)
+
+                Text("\(summary.entryCount)件のがまん")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Text(summary.totalAmount.currencyText)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(summary.category.color)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Color.white.opacity(0.92))
+        )
     }
 }
 

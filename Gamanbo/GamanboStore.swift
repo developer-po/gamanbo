@@ -60,6 +60,25 @@ final class GamanboStore: ObservableObject {
         return entries.filter { calendar.isDate($0.date, equalTo: monthStart, toGranularity: .month) }
     }
 
+    func categorySummaries(for monthStart: Date?) -> [CategorySummary] {
+        let filteredEntries = entries(for: monthStart)
+        let grouped = Dictionary(grouping: filteredEntries, by: \.category)
+
+        return grouped.map { category, entries in
+            CategorySummary(
+                category: category,
+                totalAmount: entries.reduce(0) { $0 + $1.amount },
+                entryCount: entries.count
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.totalAmount == rhs.totalAmount {
+                return lhs.category.rawValue < rhs.category.rawValue
+            }
+            return lhs.totalAmount > rhs.totalAmount
+        }
+    }
+
     var trophies: [Trophy] {
         Trophy.defaults.map { trophy in
             Trophy(
@@ -170,4 +189,12 @@ struct MonthlySummary: Identifiable {
     var monthShortLabel: String {
         monthStart.formatted(.dateTime.month(.abbreviated))
     }
+}
+
+struct CategorySummary: Identifiable {
+    let category: GamanCategory
+    let totalAmount: Int
+    let entryCount: Int
+
+    var id: GamanCategory { category }
 }
