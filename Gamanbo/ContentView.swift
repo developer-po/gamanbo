@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var store: GamanboStore
     @State private var isPresentingAddSheet = false
+    @State private var selectedMonthStart: Date?
     @State private var entryBeingEdited: GamanboEntry?
     @State private var entryPendingDeletion: GamanboEntry?
 
@@ -41,6 +42,13 @@ struct ContentView: View {
             }
             .navigationTitle("がまんぼ")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    ShareLink(item: shareText) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityLabel("共有")
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isPresentingAddSheet = true
@@ -79,6 +87,30 @@ struct ContentView: View {
                 }
             }
         )
+    }
+
+    private var filteredEntries: [GamanboEntry] {
+        store.entries(for: selectedMonthStart)
+    }
+
+    private var selectedMonthSummary: MonthlySummary? {
+        guard let selectedMonthStart else { return nil }
+        return store.monthlySummaries.first {
+            Calendar.current.isDate($0.monthStart, equalTo: selectedMonthStart, toGranularity: .month)
+        }
+    }
+
+    private var shareText: String {
+        let label = selectedMonthSummary?.monthLabel ?? "今月"
+        let total = selectedMonthSummary?.totalAmount ?? store.thisMonthTotal
+        let count = selectedMonthSummary?.entryCount ?? store.thisMonthCount
+
+        return """
+        がまんぼ記録
+        \(label)のがまん額: \(total.currencyText)
+        記録数: \(count)件
+        欲しいものをちょっと我慢して、コツコツ積み上げ中。
+        """
     }
 
     private var heroSection: some View {
@@ -175,7 +207,17 @@ struct ContentView: View {
             if store.monthlySummaries.isEmpty {
                 EmptyCard(text: "記録が増えると、月ごとの節約グラフがここに表示されます。")
             } else {
-                MonthlyBarChart(summaries: Array(store.monthlySummaries.prefix(3).reversed()))
+                VStack(alignment: .leading, spacing: 14) {
+                    MonthFilterStrip(
+                        summaries: store.monthlySummaries,
+                        selectedMonthStart: $selectedMonthStart
+                    )
+
+                    MonthlyBarChart(
+                        summaries: Array(store.monthlySummaries.prefix(3).reversed()),
+                        highlightedMonthStart: selectedMonthStart
+                    )
+                }
             }
         }
     }
@@ -204,18 +246,22 @@ struct ContentView: View {
 
                 Spacer()
 
-                if !store.entries.isEmpty {
-                    Text("新しい順")
+                if !filteredEntries.isEmpty {
+                    Text(selectedMonthSummary?.monthLabel ?? "新しい順")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
 
-            if store.entries.isEmpty {
+            if filteredEntries.isEmpty {
                 ContentUnavailableView(
-                    "まだ記録がありません",
+                    selectedMonthStart == nil ? "まだ記録がありません" : "この月の記録はありません",
                     systemImage: "tray",
-                    description: Text("まずはコンビニのスイーツや衝動買いを我慢した記録から始めてみましょう。")
+                    description: Text(
+                        selectedMonthStart == nil
+                        ? "まずはコンビニのスイーツや衝動買いを我慢した記録から始めてみましょう。"
+                        : "別の月を選ぶか、新しい我慢を記録してみましょう。"
+                    )
                 )
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 24)
@@ -225,7 +271,7 @@ struct ContentView: View {
                 )
             } else {
                 VStack(spacing: 12) {
-                    ForEach(store.entries) { entry in
+                    ForEach(filteredEntries) { entry in
                         EntryRow(entry: entry) {
                             entryPendingDeletion = entry
                         } onEdit: {
@@ -362,8 +408,51 @@ private struct EmptyCard: View {
     }
 }
 
+private struct MonthFilterStrip: View {
+    let summaries: [MonthlySummary]
+    @Binding var selectedMonthStart: Date?
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                monthChip(title: "すべて", isSelected: selectedMonthStart == nil) {
+                    selectedMonthStart = nil
+                }
+
+                ForEach(summaries) { summary in
+                    monthChip(
+                        title: summary.monthShortLabel,
+                        isSelected: selectedMonthStart.map {
+                            Calendar.current.isDate($0, equalTo: summary.monthStart, toGranularity: .month)
+                        } ?? false
+                    ) {
+                        selectedMonthStart = summary.monthStart
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func monthChip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(isSelected ? Color(red: 0.20, green: 0.55, blue: 0.38) : Color.white.opacity(0.92))
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 private struct MonthlyBarChart: View {
     let summaries: [MonthlySummary]
+    let highlightedMonthStart: Date?
 
     private var maxAmount: Double {
         Double(summaries.map(\.totalAmount).max() ?? 1)
@@ -373,10 +462,14 @@ private struct MonthlyBarChart: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .bottom, spacing: 14) {
                 ForEach(summaries) { summary in
+                    let isHighlighted = highlightedMonthStart.map {
+                        Calendar.current.isDate($0, equalTo: summary.monthStart, toGranularity: .month)
+                    } ?? false
+
                     VStack(spacing: 10) {
                         Text(summary.totalAmount.currencyText)
                             .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(isHighlighted ? .primary : .secondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
 
@@ -387,8 +480,8 @@ private struct MonthlyBarChart: View {
                                     .fill(
                                         LinearGradient(
                                             colors: [
-                                                Color(red: 0.19, green: 0.61, blue: 0.50),
-                                                Color(red: 0.91, green: 0.73, blue: 0.34)
+                                                isHighlighted ? Color(red: 0.16, green: 0.49, blue: 0.43) : Color(red: 0.19, green: 0.61, blue: 0.50),
+                                                isHighlighted ? Color(red: 0.83, green: 0.61, blue: 0.16) : Color(red: 0.91, green: 0.73, blue: 0.34)
                                             ],
                                             startPoint: .bottom,
                                             endPoint: .top
@@ -401,7 +494,7 @@ private struct MonthlyBarChart: View {
 
                         Text(summary.monthShortLabel)
                             .font(.caption.weight(.medium))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(isHighlighted ? .primary : .secondary)
                     }
                     .frame(maxWidth: .infinity)
                 }

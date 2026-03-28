@@ -54,6 +54,12 @@ final class GamanboStore: ObservableObject {
         .sorted { $0.monthStart > $1.monthStart }
     }
 
+    func entries(for monthStart: Date?) -> [GamanboEntry] {
+        guard let monthStart else { return entries }
+        let calendar = Calendar.current
+        return entries.filter { calendar.isDate($0.date, equalTo: monthStart, toGranularity: .month) }
+    }
+
     var trophies: [Trophy] {
         Trophy.defaults.map { trophy in
             Trophy(
